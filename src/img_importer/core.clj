@@ -2,9 +2,11 @@
   (:require [clojure.java.io :as io]
             [cheshire.core :refer :all]
             [clojure.pprint :refer :all]
-            [clojure.string :refer :all]))
+            [clojure.string :as s]
+            [clj-http.client :as client]
+            [http.async.client :as http]))
 
-(def json "
+(def cubes (parse-string "
   [{
    \"title\": \"Circle Cube\",
    \"name\": \"Paul Trillo\",
@@ -127,9 +129,7 @@
               \"https://www.imagecu.be/serve/AMIfv96t0-vVnIWN5jvqg3bmb_4XMS8VRD0O8z9BaN-DS2ncgotGKKJd0q4qHBCsij6NHgEV50q4eaflZkMkwrQle9mzt4dli44R6qC998UnKI7FL_vOQcuKhIWu_J9c2O73m8O5Dm3319zgoVYj3hoPQ-X8mbVjPk0ZyMkoD1A71sKQ1pNMu1A\",
               \"https://www.imagecu.be/serve/AMIfv96_uGBV1gfn5dDNnP62UDgtv8-89xBMRiRUV6v35jWkti7pulZZN3tlFQeb6BRlS0HGFcAi71Oc4x0fCTcp5fKG0v4NM0-9h9ZxTwJEtTimL2QXyUJAD7ofU_I-Di5DwUXLFj1nndICm3YqaPGtofpIScpxpk6XNm8PIo-TkEtsR229wvA\"
               ]
-   }]")
-
-(def edn (parse-string json))
+   }]"))
 
 (defn copy [uri file]
   (pprint uri)
@@ -143,11 +143,31 @@
     (doseq [[index value] idv]
       (f value index))))
 
+(defn test-copy [uri]
+  (copy uri "resources/test.jpg"))
 
+(def color "https://www.imagecu.be/serve/AMIfv95yChsqxGuNPqPvGz3b5nIrf04NzDnnmBoqxfs0WOcbQCfM3Faommbb0zRt8Oexip024mLK7vzIfbokInfWvoxBbTZ2tOPELKQ_REJEcwgjktzylCJzoqPYNSMm2w7OACYXIQ2HhlOBX_xH7aqr_N_E4qNePzBuZf_azcpb9MufaRWlpuQ")
+(def camo "https://www.imagecu.be/serve/AMIfv97IvwyqFmja3wHH8rVHLVNIctjYpw4yjFlsLOOT0yOwBy573Twa9WBHJLjlAhzw1K-2clTWhe1wkfcqmN7hFwD-ocveQhegEVbMJd0mb6LW-AZlk--CnaK7q8cx5nXC1wz-2aTh3ZaQK3WoNKyJlXpvCCny5Ca1jq0Rxd-4o7rfNk0HBDs")
+;; where you get redirected to
+(def camo-redirect "https://lh5.ggpht.com/xui_8WeGTPEghitCz18r4C2sihXHqwC1MQm1f4amRR93DvKq9k4vxECtUajiCTaFwPDrCOsSd3sXw6qG57IWzQsG7j-0fab5BtY")
 
-(doseq [{:strs [images title]} edn]
-  (let [path (replace (lower-case title) #" " "_")]
-    (indexed (fn [img i]
-               (copy img (str "resources/cubes/" path "/" i))) images)))
+(comment
+  (test-copy camo)
+  (test-copy color)
+  (test-copy camo-redirect)
 
-(copy "https://www.imagecu.be/serve/AMIfv950lXhmQP_6iWmxzLD26V1zGyzKlatNeTaCu0Ky7MNhntpl6WYMYs6MbG4DUW67245a4FBWS7U4uQnApgfKtaHKN7jEW7E9IaFiV6KodV3bRgnWvmGF_SyehtnW_BXzAevDHNjDHCK0uWKPs1G1FWDRg1tLs3Nw74bpGO2pTLf-KeSttOs" "resources/test.jpg")
+  (client/get camo {:insecure? true
+                    :follow-redirect true})
+
+  (with-open [client (http/create-client)]
+    (let [response (http/GET client camo)]
+      (-> response
+          http/await
+          pprint)))
+
+  (doseq [{:strs [images title]} cubes]
+    (let [path (s/replace (s/lower-case title) #" " "_")]
+      (indexed (fn [img i]
+                 (copy img (str "resources/cubes/" path "/" i))) images)))
+
+  )
