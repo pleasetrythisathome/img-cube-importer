@@ -6,7 +6,7 @@
             [clojure.java.shell :refer [sh]]
             [pantomime.mime :as pm]))
 
-(def cubes (parse-string (slurp "resources/cubes.json")))
+(def cubes (parse-string (slurp (io/resource "cubes.json"))))
 
 (defn indexed [f v]
   (let [idv (map vector (iterate inc 0) v)]
