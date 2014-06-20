@@ -3,8 +3,8 @@
             [cheshire.core :refer :all]
             [clojure.pprint :refer :all]
             [clojure.string :as s]
-            [clj-http.client :as client]
-            [http.async.client :as http]))
+            [clojure.java.shell :refer [sh]]
+            [pantomime.mime :as pm]))
 
 (def cubes (parse-string "
   [{
@@ -131,43 +131,26 @@
               ]
    }]"))
 
-(defn copy [uri file]
-  (pprint uri)
-  (with-open [in (io/input-stream uri)
-              out (io/output-stream file)]
-    (pprint (str "saving: " uri " as " file))
-    (io/copy in out)))
-
 (defn indexed [f v]
   (let [idv (map vector (iterate inc 0) v)]
     (doseq [[index value] idv]
       (f value index))))
 
-(defn test-copy [uri]
-  (copy uri "resources/test.jpg"))
+(defn curl-save [uri file]
+  (pprint (str "saving " uri " to " file))
+  (sh "curl" "-L" "-q" "-s" uri "-o" file))
 
-(def color "https://www.imagecu.be/serve/AMIfv95yChsqxGuNPqPvGz3b5nIrf04NzDnnmBoqxfs0WOcbQCfM3Faommbb0zRt8Oexip024mLK7vzIfbokInfWvoxBbTZ2tOPELKQ_REJEcwgjktzylCJzoqPYNSMm2w7OACYXIQ2HhlOBX_xH7aqr_N_E4qNePzBuZf_azcpb9MufaRWlpuQ")
-(def camo "https://www.imagecu.be/serve/AMIfv97IvwyqFmja3wHH8rVHLVNIctjYpw4yjFlsLOOT0yOwBy573Twa9WBHJLjlAhzw1K-2clTWhe1wkfcqmN7hFwD-ocveQhegEVbMJd0mb6LW-AZlk--CnaK7q8cx5nXC1wz-2aTh3ZaQK3WoNKyJlXpvCCny5Ca1jq0Rxd-4o7rfNk0HBDs")
-;; where you get redirected to
-(def camo-redirect "https://lh5.ggpht.com/xui_8WeGTPEghitCz18r4C2sihXHqwC1MQm1f4amRR93DvKq9k4vxECtUajiCTaFwPDrCOsSd3sXw6qG57IWzQsG7j-0fab5BtY")
-
-(comment
-  (test-copy camo)
-  (test-copy color)
-  (test-copy camo-redirect)
-
-  (client/get camo {:insecure? true
-                    :follow-redirect true})
-
-  (with-open [client (http/create-client)]
-    (let [response (http/GET client camo)]
-      (-> response
-          http/await
-          pprint)))
-
-  (doseq [{:strs [images title]} cubes]
-    (let [path (s/replace (s/lower-case title) #" " "_")]
-      (indexed (fn [img i]
-                 (copy img (str "resources/cubes/" path "/" i))) images)))
-
-  )
+(doseq [{:strs [images title]} cubes]
+  (sh "mkdir" "resources/cubes")
+  (let [path (s/replace (s/lower-case title) #" " "_")]
+    (sh "rm" "-rf" (str "resources/cubes/" path))
+    (sh "mkdir" (str "resources/cubes/" path))
+    (indexed (fn [img i]
+               (let [fname (str "resources/cubes/" path "/" i)]
+                 (curl-save img fname)
+                 (let [ext (-> fname
+                               (io/file)
+                               pm/mime-type-of
+                               pm/extension-for-name)]
+                   (sh "mv" fname (str fname ext)))))
+             images)))
