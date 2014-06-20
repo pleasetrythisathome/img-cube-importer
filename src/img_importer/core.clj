@@ -41,6 +41,10 @@
       (sh "mkdir" cube-path)
       (assoc cube "images" (save-images images cube-path)))))
 
-(let [saved (save-cubes cubes "/Users/HereNow/code/ib5k/fakelove/cubes/cl-cuber/cl-chrome-imagecube/core/static/googleIO/images/cubes")]
-  (pprint saved)
-  (spit "/Users/HereNow/code/ib5k/fakelove/cubes/cl-cuber/cl-chrome-imagecube/core/static/googleIO/scripts/cubes.json" (generate-string saved)))
+(let [root "/Users/HereNow/code/ib5k/fakelove/cubes/cl-cuber/cl-chrome-imagecube/core/static"
+      saved (save-cubes cubes (str root "/googleIO/images/cubes"))
+      relative (for [{:strs [images] :as cube} saved]
+                 (let [rel-images (for [img images]
+                                    (s/replace img root "/static_dev"))]
+                   (assoc cube "images" rel-images)))]
+  (spit (str root "/googleIO/scripts/cubes.json") (generate-string relative)))
