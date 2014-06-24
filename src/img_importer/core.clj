@@ -25,26 +25,39 @@
     (sh "mv" file with-ext)
     with-ext))
 
+(defn save-image [img fname]
+  (curl-save img fname)
+  (rename-with-ext fname))
+
 (defn save-images [images path]
   (into [] (map-iv (fn [i img]
                      (let [fname (str path "/" i)]
-                       (curl-save img fname)
-                       (rename-with-ext fname)))
+                       (save-image img fname)))
                    images)))
 
 (defn save-cubes [cubes path]
   (sh "mkdir" path)
-  (for [{:strs [images title] :as cube} cubes]
+  (for [{:strs [images title background] :as cube} cubes]
     (let [key (s/replace (s/lower-case title) #" " "_")
           cube-path (str path "/" key)]
       (sh "rm" "-rf" cube-path)
       (sh "mkdir" cube-path)
-      (assoc cube "images" (save-images images cube-path)))))
+      (let [saved {"images" (save-images images cube-path)
+                   "background" (if-not (empty? background)
+                                  (save-image background (str cube-path "/background"))
+                                  "")}]
+        (merge cube saved)))))
 
 (let [root "/Users/HereNow/code/ib5k/fakelove/cubes/cl-cuber/cl-chrome-imagecube/core/static"
       saved (save-cubes cubes (str root "/googleIO/images/cubes"))
-      relative (for [{:strs [images] :as cube} saved]
-                 (let [rel-images (for [img images]
-                                    (s/replace img root "/static_dev"))]
-                   (assoc cube "images" rel-images)))]
-  (spit (str root "/googleIO/scripts/cubes.json") (generate-string relative)))
+      relative (for [{:strs [images background] :as cube} saved]
+                 (letfn [(make-rel [path]
+                           (s/replace path root "/static_dev"))]
+                   (let [relative {"images" (for [img images]
+                                              (make-rel img))
+                                   "background" (if-not (empty? background)
+                                                  (make-rel background)
+                                                  "")}]
+                    (merge cube relative))))]
+  (spit (str root "/googleIO/scripts/saved_cubes.json") (generate-string relative))
+  (pprint "Finished pulling images!"))
