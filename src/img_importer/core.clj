@@ -6,7 +6,7 @@
             [clojure.java.shell :refer [sh]]
             [pantomime.mime :as pm]))
 
-(def cubes (parse-string (slurp (io/resource "cubes.json"))))
+(def cubes (parse-string (slurp "/Users/HereNow/code/ib5k/fakelove/cubes/cl-cuber/cl-chrome-imagecube/core/static/googleIO/scripts/cubes.json")))
 
 (defn map-iv [f v]
   (let [idv (map vector (iterate inc 0) v)]
